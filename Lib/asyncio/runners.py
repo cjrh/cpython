@@ -3,9 +3,10 @@ __all__ = 'run',
 from . import coroutines
 from . import events
 from . import tasks
+from concurrent.futures import ThreadPoolExecutor as Executor
 
 
-def run(main, *, debug=False):
+def run(main, *, debug=False, executor=None):
     """Run a coroutine.
 
     This function runs the passed coroutine, taking care of
@@ -37,6 +38,12 @@ def run(main, *, debug=False):
         raise ValueError("a coroutine was expected, got {!r}".format(main))
 
     loop = events.new_event_loop()
+    if executor:
+        loop.set_default_executor(executor)
+    else:
+        executor = Executor()
+        loop.set_default_executor(executor)
+
     try:
         events.set_event_loop(loop)
         loop.set_debug(debug)
@@ -45,6 +52,7 @@ def run(main, *, debug=False):
         try:
             _cancel_all_tasks(loop)
             loop.run_until_complete(loop.shutdown_asyncgens())
+            executor.shutdown(wait=True)
         finally:
             events.set_event_loop(None)
             loop.close()
